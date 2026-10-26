@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}My to-dos{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>To-Do</h1>
+  <form method="post" action="{{ url_for('add') }}" data-rules="todo" novalidate>
+    <div class="row">
+      <input name="title" placeholder="What needs to be done?" aria-label="New to-do" value="{{ form_title }}">
+      <button class="btn">Add</button>
+    </div>
+    <ul class="errors" {% if not errors or edit_id %}hidden{% endif %}>{% if not edit_id %}{% for e in errors %}<li>{{ e }}</li>{% endfor %}{% endif %}</ul>
+  </form>
+
+  {% if not todos %}
+    <p class="empty">🎉 Nothing to do yet. Add your first to-do above!</p>
+  {% endif %}
+
+  <ul class="list">
+  {% for t in todos %}
+    <li class="item {{ 'is-done' if t.is_done }}">
+      <form method="post" action="{{ url_for('done', todo_id=t.todo_id) }}">
+        <input type="hidden" name="is_done" value="{{ 0 if t.is_done else 1 }}">
+        <button class="check" title="{{ 'Mark as open' if t.is_done else 'Mark as done' }}"
+                aria-label="Toggle done">{{ '✓' if t.is_done else '' }}</button>
+      </form>
+      <form method="post" action="{{ url_for('edit', todo_id=t.todo_id) }}" class="edit" data-rules="todo" novalidate>
+        <div class="row">
+          <input name="title" aria-label="Title" value="{{ edit_title if edit_id == t.todo_id else t.title }}">
+          <button class="btn small">Save</button>
+        </div>
+        <ul class="errors" {% if edit_id != t.todo_id %}hidden{% endif %}>{% if edit_id == t.todo_id %}{% for e in errors %}<li>{{ e }}</li>{% endfor %}{% endif %}</ul>
+      </form>
+      <form method="post" action="{{ url_for('delete', todo_id=t.todo_id) }}" data-confirm="Are you sure you want to delete this to-do?">
+        <button class="btn small danger">Delete</button>
+      </form>
+    </li>
+  {% endfor %}
+  </ul>
+</section>
+{% endblock %}

@@ -1,0 +1,103 @@
+Problem 1 - Answers (COMPANY database)
+Tested on MySQL 8.0. Q1.1 and Q1.2 were run after problem1_DDL.sql and problem1_DML.sql.
+Q1.3 was run on empty tables, right after problem1_DDL.sql.
+
+======================================================================
+Q1.1  Insert a row in DEPARTMENT that references a row in EMPLOYEE,
+      then try to delete the referenced row. What will happen?
+======================================================================
+SQL:
+  INSERT INTO DEPARTMENT (Dnumber, Dname, mgr_ssn, mgr_start_date)
+  VALUES (4, 'Research', 444444444, '2023-01-01');
+
+  SELECT * FROM DEPARTMENT WHERE Dnumber = 4;
+
+  DELETE FROM EMPLOYEE WHERE ssn = 444444444;
+
+Output:
+  The INSERT works, because employee 444444444 exists.
+
+  Dnumber  Dname     mgr_ssn    mgr_start_date
+  4        Research  444444444  2023-01-01
+
+  The DELETE fails:
+  ERROR 1451 (23000): Cannot delete or update a parent row: a foreign key constraint fails
+  (`company`.`DEPARTMENT`, CONSTRAINT `DEPARTMENT_ibfk_1` FOREIGN KEY (`mgr_ssn`)
+  REFERENCES `EMPLOYEE` (`ssn`))
+
+Answer:
+  MySQL refuses to delete the employee, because a row in DEPARTMENT still points to it
+  (referential integrity). The employee row stays in the table. To delete it we must first
+  change or delete the department row(s) that reference it.
+
+======================================================================
+Q1.2  Insert a row in PROJECT that references a DEPARTMENT row
+      that doesn't exist yet. What will happen?
+======================================================================
+SQL:
+  INSERT INTO PROJECT (Pnumber, Pname, Plocation, Dno)
+  VALUES (5, 'Data Warehouse', 'Cairo', 99);
+
+Output:
+  ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails
+  (`company`.`PROJECT`, CONSTRAINT `PROJECT_ibfk_1` FOREIGN KEY (`Dno`)
+  REFERENCES `DEPARTMENT` (`Dnumber`))
+
+Answer:
+  The INSERT is rejected, because there is no department with Dnumber = 99. A foreign key
+  value must be NULL or equal to an existing primary key value. We must insert the
+  department first, then the project.
+
+======================================================================
+Q1.3  If mgr_ssn and Dno are both NOT NULL, how will you insert the
+      first row in EMPLOYEE or DEPARTMENT?
+======================================================================
+Problem: EMPLOYEE.Dno needs an existing department, and DEPARTMENT.mgr_ssn needs an
+existing employee. Both tables are empty and neither column can be NULL, so each table
+waits for the other one.
+
+SQL (try the normal way, on empty tables):
+  INSERT INTO EMPLOYEE (ssn, fname, lname, bdate, address, gender, salary, Dno)
+  VALUES (555555555, 'Test', 'First', '1990-01-01', 'Cairo', 'M', 5000.00, 1);
+
+  INSERT INTO DEPARTMENT (Dnumber, Dname, mgr_ssn, mgr_start_date)
+  VALUES (1, 'Engineering', 555555555, '2020-01-01');
+
+Output (both fail):
+  ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails
+  (`company`.`EMPLOYEE`, CONSTRAINT `EMPLOYEE_ibfk_1` FOREIGN KEY (`Dno`)
+  REFERENCES `DEPARTMENT` (`Dnumber`))
+
+  ERROR 1452 (23000): Cannot add or update a child row: a foreign key constraint fails
+  (`company`.`DEPARTMENT`, CONSTRAINT `DEPARTMENT_ibfk_1` FOREIGN KEY (`mgr_ssn`)
+  REFERENCES `EMPLOYEE` (`ssn`))
+
+Solution: switch the foreign key check off, insert the two first rows, switch it on again.
+
+SQL:
+  SET FOREIGN_KEY_CHECKS = 0;
+
+  INSERT INTO EMPLOYEE (ssn, fname, lname, bdate, address, gender, salary, Dno)
+  VALUES (111111111, 'Ahmed', 'Hassan', '1990-05-12', 'Alexandria', 'M', 8500.00, 1);
+
+  INSERT INTO DEPARTMENT (Dnumber, Dname, mgr_ssn, mgr_start_date)
+  VALUES (1, 'Engineering', 111111111, '2020-01-01');
+
+  SET FOREIGN_KEY_CHECKS = 1;
+
+  SELECT ssn, fname, Dno FROM EMPLOYEE;
+  SELECT Dnumber, Dname, mgr_ssn FROM DEPARTMENT;
+
+Output (no error):
+  ssn        fname  Dno
+  111111111  Ahmed  1
+
+  Dnumber  Dname        mgr_ssn
+  1        Engineering  111111111
+
+Answer:
+  We turn the check off with SET FOREIGN_KEY_CHECKS = 0, insert the first employee and the
+  first department (they point to each other), then turn it on again with
+  SET FOREIGN_KEY_CHECKS = 1. After that, every new row is checked normally.
+  (Another way: make one of the two columns allow NULL, insert, then UPDATE the value.)
+  This is exactly what problem1_DML.sql does.

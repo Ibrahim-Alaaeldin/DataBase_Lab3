@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Register{% endblock %}
+{% block content %}
+<section class="card narrow">
+  <h1>Create account</h1>
+  <form method="post" data-rules="register" novalidate>
+    <ul class="errors" {% if not errors %}hidden{% endif %}>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    <label>Name <input name="name" maxlength="100" value="{{ form.get('name','') }}" autocomplete="name"></label>
+    <label>Email <input name="email" type="email" value="{{ form.get('email','') }}" autocomplete="email"></label>
+    <label>Password <input name="password" type="password" maxlength="72" autocomplete="new-password"></label>
+    <label>Confirm password <input name="confirm_password" type="password" maxlength="72" autocomplete="new-password"></label>
+    <button class="btn">Register</button>
+  </form>
+  <p class="muted">Already registered? <a href="{{ url_for('login') }}">Log in</a></p>
+</section>
+{% endblock %}

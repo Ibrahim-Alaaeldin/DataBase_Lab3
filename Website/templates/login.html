@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+{% block content %}
+<section class="card narrow">
+  <h1>Log in</h1>
+  <form method="post" data-rules="login" novalidate>
+    <ul class="errors" {% if not errors %}hidden{% endif %}>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    <label>Email <input name="email" type="email" value="{{ email }}" autocomplete="email"></label>
+    <label>Password <input name="password" type="password" autocomplete="current-password"></label>
+    <button class="btn">Log in</button>
+  </form>
+  <p class="muted">New here? <a href="{{ url_for('register') }}">Create an account</a></p>
+</section>
+{% endblock %}
