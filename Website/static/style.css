@@ -32,4 +32,15 @@ input:focus{outline:2px solid var(--brand);outline-offset:1px}
 .item.is-done .edit input{text-decoration:line-through;color:var(--muted)}
 .check{width:2rem;height:2rem;border-radius:50%;border:2px solid var(--brand);background:transparent;color:#fff;font-weight:700;cursor:pointer;margin-top:.1rem}
 .is-done .check{background:var(--brand)}
-@media (max-width:480px){main{padding:.5rem}.card{padding:1rem}.bar{padding:.6rem}}
+@media (max-width:480px){main{padding:.5rem}.card{padding:1rem}.bar{padding:.6rem}
+
+/* ---- library ---- */
+.bar nav { display: flex; gap: 14px; margin-left: 16px; }
+.bar nav a { text-decoration: none; }
+.table-wrap { overflow-x: auto; margin-top: 12px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid rgba(128,128,128,.25); }
+.actions { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+.actions form { margin: 0; }
+a.btn { display: inline-block; text-decoration: none; }
+}

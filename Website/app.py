@@ -1,10 +1,11 @@
 import os
+from decimal import Decimal, InvalidOperation
 from functools import wraps
 
 import bcrypt
 import pymysql
 from dotenv import load_dotenv
-from flask import (Flask, redirect, render_template, request, session, url_for)
+from flask import (Flask, abort, redirect, render_template, request, session, url_for)
 
 load_dotenv()
 app = Flask(__name__)
@@ -12,13 +13,13 @@ app.secret_key = os.environ["SECRET_KEY"]
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
 
 
-def run(sql, args=(), fetch="none"):
+def run(sql, args=(), fetch="none", db=None):
     """Run ONE parameterised statement. fetch: none | one | all."""
     conn = pymysql.connect(
         host=os.getenv("DB_HOST", "localhost"),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME", "registration"),
+        database=db or os.getenv("DB_NAME", "registration"),
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=True,
     )
@@ -37,7 +38,7 @@ def run(sql, args=(), fetch="none"):
 def login_required(view):
     @wraps(view)
     def wrapped(*a, **kw):
-        if "user_id" not in session:          # R3
+        if "user_id" not in session:
             return redirect(url_for("login"))
         return view(*a, **kw)
     return wrapped
@@ -114,13 +115,10 @@ def login():
             user = run("SELECT user_id, name, password_hash FROM users WHERE email = %s",
                        (email,), "one")
             if user:
-                # التأكد من أن الهاش المخزن موجود وصحيح كـ bytes أو string معالجة
                 stored_hash = user["password_hash"]
                 if isinstance(stored_hash, str):
-                    stored_hash = stored_hash.encode('utf-8')
-                
-                # فحص كلمة المرور بأمان بدون قص عشوائي قد يسبب ثغرة في المقارنة
-                if bcrypt.checkpw(pw.encode('utf-8'), stored_hash):
+                    stored_hash = stored_hash.encode("utf-8")
+                if bcrypt.checkpw(pw.encode("utf-8"), stored_hash):
                     session.clear()
                     session["user_id"], session["name"] = user["user_id"], user["name"]
                     return redirect(url_for("todos"))
@@ -186,6 +184,145 @@ def done(todo_id):
 def delete(todo_id):
     run("DELETE FROM todos WHERE todo_id = %s AND user_id = %s", (todo_id, session["user_id"]))
     return redirect(url_for("todos"))
+
+
+# ---------- library ----------
+def lib(sql, args=(), fetch="none"):
+    return run(sql, args, fetch, db="library")
+
+
+def show_library(errors=None, form=None):
+    books = lib("SELECT book_id, title, price, author_id FROM BOOK ORDER BY book_id", fetch="all")
+    authors = lib("SELECT author_id, name, country FROM AUTHOR ORDER BY author_id", fetch="all")
+    return render_template("library.html", books=books, authors=authors,
+                           errors=errors or [], form=form or {})
+
+
+def check_author(form):
+    name = form.get("name", "").strip()
+    country = form.get("country", "").strip()
+    errors = []
+    if not name:
+        errors.append("Author name is required")
+    elif len(name) > 50:
+        errors.append("Author name is too long (50 characters at most)")
+    if len(country) > 50:
+        errors.append("Country is too long (50 characters at most)")
+    return name, country, errors
+
+
+def check_book(form):
+    title = form.get("title", "").strip()
+    price_raw = form.get("price", "").strip()
+    author_raw = form.get("author_id", "").strip()
+    errors, price, author_id = [], None, None
+    if not title:
+        errors.append("Book title is required")
+    elif len(title) > 100:
+        errors.append("Book title is too long (100 characters at most)")
+    try:
+        price = Decimal(price_raw)
+        if not price.is_finite() or price < 0 or price >= 10**8:
+            errors.append("Price must be between 0 and 99999999.99")
+    except InvalidOperation:
+        errors.append("Price must be a number")
+    try:
+        author_id = int(author_raw)
+    except ValueError:
+        errors.append("Author id must be a whole number")
+    return title, price, author_id, errors
+
+
+@app.route("/library")
+@login_required
+def library():                                   # F2.1
+    return show_library()
+
+
+@app.route("/library/authors/add", methods=["POST"])
+@login_required
+def add_author():                                # F2.2
+    name, country, errors = check_author(request.form)
+    if errors:
+        return show_library(errors, request.form)
+    lib("INSERT INTO AUTHOR (name, country) VALUES (%s, %s)", (name, country or None))
+    return redirect(url_for("library"))
+
+
+@app.route("/library/books/add", methods=["POST"])
+@login_required
+def add_book():                                  # F2.2
+    title, price, author_id, errors = check_book(request.form)
+    if not errors:
+        try:
+            lib("INSERT INTO BOOK (title, price, author_id) VALUES (%s, %s, %s)",
+                (title, price, author_id))
+            return redirect(url_for("library"))
+        except pymysql.err.IntegrityError as e:
+            if e.args[0] == 1452:
+                errors.append("This author id does not exist")
+            else:
+                raise
+    return show_library(errors, request.form)
+
+
+@app.route("/library/authors/<int:author_id>/edit", methods=["GET", "POST"])
+@login_required
+def edit_author(author_id):                      # F2.3
+    author = lib("SELECT author_id, name, country FROM AUTHOR WHERE author_id = %s",
+                 (author_id,), "one")
+    if not author:
+        abort(404)
+    errors = []
+    if request.method == "POST":
+        name, country, errors = check_author(request.form)
+        if not errors:
+            lib("UPDATE AUTHOR SET name = %s, country = %s WHERE author_id = %s",
+                (name, country or None, author_id))
+            return redirect(url_for("library"))
+        author = {"author_id": author_id, "name": request.form.get("name", ""),
+                  "country": request.form.get("country", "")}
+    return render_template("edit_author.html", author=author, errors=errors)
+
+
+@app.route("/library/books/<int:book_id>/edit", methods=["GET", "POST"])
+@login_required
+def edit_book(book_id):                          # F2.3
+    book = lib("SELECT book_id, title, price, author_id FROM BOOK WHERE book_id = %s",
+               (book_id,), "one")
+    if not book:
+        abort(404)
+    errors = []
+    if request.method == "POST":
+        title, price, author_id, errors = check_book(request.form)
+        if not errors:
+            try:
+                lib("UPDATE BOOK SET title = %s, price = %s, author_id = %s WHERE book_id = %s",
+                    (title, price, author_id, book_id))
+                return redirect(url_for("library"))
+            except pymysql.err.IntegrityError as e:
+                if e.args[0] == 1452:
+                    errors.append("This author id does not exist")
+                else:
+                    raise
+        book = {"book_id": book_id, "title": request.form.get("title", ""),
+                "price": request.form.get("price", ""),
+                "author_id": request.form.get("author_id", "")}
+    return render_template("edit_book.html", book=book, errors=errors)
+
+
+@app.route("/library/books/<int:book_id>/delete", methods=["POST"])
+@login_required
+def delete_book(book_id):                        # F2.4
+    lib("DELETE FROM BOOK WHERE book_id = %s", (book_id,))
+    return redirect(url_for("library"))
+
+
+@app.route("/library/authors/<int:author_id>/delete", methods=["POST"])
+@login_required
+def delete_author(author_id):                    # F2.5 (books deleted by ON DELETE CASCADE)
+    lib("DELETE FROM AUTHOR WHERE author_id = %s", (author_id,))
+    return redirect(url_for("library"))
 
 
 # ---------- friendly errors ----------

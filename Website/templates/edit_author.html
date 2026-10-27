@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Edit author{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Edit author #{{ author.author_id }}</h1>
+  <form method="post" action="{{ url_for('edit_author', author_id=author.author_id) }}" novalidate>
+    <div class="row">
+      <input name="name" placeholder="Name" aria-label="Name" value="{{ author.name }}">
+      <input name="country" placeholder="Country" aria-label="Country" value="{{ author.country or '' }}">
+    </div>
+    <ul class="errors" {% if not errors %}hidden{% endif %}>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    <div class="row">
+      <button class="btn">Save</button>
+      <a class="btn ghost" href="{{ url_for('library') }}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

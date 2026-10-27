@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Edit book{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Edit book #{{ book.book_id }}</h1>
+  <form method="post" action="{{ url_for('edit_book', book_id=book.book_id) }}" novalidate>
+    <div class="row">
+      <input name="title" placeholder="Title" aria-label="Title" value="{{ book.title }}">
+      <input name="price" placeholder="Price" aria-label="Price" inputmode="decimal" value="{{ book.price }}">
+      <input name="author_id" placeholder="Author id" aria-label="Author id" inputmode="numeric" value="{{ book.author_id }}">
+    </div>
+    <ul class="errors" {% if not errors %}hidden{% endif %}>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    <div class="row">
+      <button class="btn">Save</button>
+      <a class="btn ghost" href="{{ url_for('library') }}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

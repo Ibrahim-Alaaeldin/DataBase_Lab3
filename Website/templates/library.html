@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Library{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Library</h1>
+  <ul class="errors" {% if not errors %}hidden{% endif %}>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+</section>
+
+<section class="card">
+  <h1>Books</h1>
+  <form method="post" action="{{ url_for('add_book') }}" novalidate>
+    <div class="row">
+      <input name="title" placeholder="Title" aria-label="Title" value="{{ form.get('title', '') }}">
+      <input name="price" placeholder="Price" aria-label="Price" inputmode="decimal" value="{{ form.get('price', '') }}">
+      <input name="author_id" placeholder="Author id" aria-label="Author id" inputmode="numeric" value="{{ form.get('author_id', '') }}">
+      <button class="btn">Add book</button>
+    </div>
+  </form>
+
+  {% if not books %}
+    <p class="empty">No books yet.</p>
+  {% else %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Title</th><th>Price</th><th>Author id</th><th></th></tr></thead>
+      <tbody>
+      {% for b in books %}
+        <tr>
+          <td>{{ b.book_id }}</td>
+          <td>{{ b.title }}</td>
+          <td>{{ b.price }}</td>
+          <td>{{ b.author_id }}</td>
+          <td class="actions">
+            <a class="btn small ghost" href="{{ url_for('edit_book', book_id=b.book_id) }}">Edit</a>
+            <form method="post" action="{{ url_for('delete_book', book_id=b.book_id) }}"
+                  data-confirm="Are you sure you want to delete this book?">
+              <button class="btn small danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h1>Authors</h1>
+  <form method="post" action="{{ url_for('add_author') }}" novalidate>
+    <div class="row">
+      <input name="name" placeholder="Name" aria-label="Name" value="{{ form.get('name', '') }}">
+      <input name="country" placeholder="Country" aria-label="Country" value="{{ form.get('country', '') }}">
+      <button class="btn">Add author</button>
+    </div>
+  </form>
+
+  {% if not authors %}
+    <p class="empty">No authors yet.</p>
+  {% else %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Name</th><th>Country</th><th></th></tr></thead>
+      <tbody>
+      {% for a in authors %}
+        <tr>
+          <td>{{ a.author_id }}</td>
+          <td>{{ a.name }}</td>
+          <td>{{ a.country or '' }}</td>
+          <td class="actions">
+            <a class="btn small ghost" href="{{ url_for('edit_author', author_id=a.author_id) }}">Edit</a>
+            <form method="post" action="{{ url_for('delete_author', author_id=a.author_id) }}"
+                  data-confirm="Delete this author? All of their books will be deleted too.">
+              <button class="btn small danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
